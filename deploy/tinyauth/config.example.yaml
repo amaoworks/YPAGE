@@ -1,0 +1,20 @@
+appUrl: "https://pass.domain-a.com"
+labelProvider: none
+
+ui:
+  title: "YPAGE PASS"
+
+auth:
+  secureCookie: true
+  subdomainsEnabled: false
+  users:
+    - "username:REPLACE_WITH_BCRYPT_HASH"
+
+oidc:
+  clients:
+    ypage:
+      name: "YPAGE"
+      clientId: "ypage"
+      clientSecret: "REPLACE_WITH_OIDC_CLIENT_SECRET"
+      trustedRedirectUris:
+        - "https://home.domain-b.com/api/auth/callback"

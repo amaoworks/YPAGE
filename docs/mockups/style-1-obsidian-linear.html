@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YPAGE — 风格 1：Obsidian Linear（极简暗夜控制台）</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: inherit;
+  }
+
+  .canvas {
+    --bg: #09090b;
+    --bg-elev: #111114;
+    --bg-card: rgba(24, 24, 27, 0.72);
+    --bg-card-hover: rgba(32, 32, 38, 0.92);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(139, 92, 246, 0.42);
+    --text: #fafafa;
+    --text-muted: #8b8b96;
+    --text-faint: #575762;
+    --accent: #8b5cf6;
+    --accent-soft: rgba(139, 92, 246, 0.14);
+    --accent-text: #c4b5fd;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --pill-bg: rgba(255, 255, 255, 0.05);
+    --kbd-bg: rgba(255, 255, 255, 0.06);
+    --glow: radial-gradient(60% 45% at 50% 0%, rgba(124, 58, 237, 0.16) 0%, rgba(9, 9, 11, 0) 100%);
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+
+    background: var(--bg);
+    background-image: var(--glow);
+    color: var(--text);
+    border-radius: var(--radius, 14px);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .canvas.light {
+    --bg: #fafafa;
+    --bg-elev: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f8f7ff;
+    --border: rgba(9, 9, 11, 0.09);
+    --border-hover: rgba(124, 58, 237, 0.45);
+    --text: #09090b;
+    --text-muted: #64646f;
+    --text-faint: #9a9aa6;
+    --accent: #7c3aed;
+    --accent-soft: rgba(124, 58, 237, 0.09);
+    --accent-text: #6d28d9;
+    --pill-bg: rgba(9, 9, 11, 0.045);
+    --kbd-bg: rgba(9, 9, 11, 0.06);
+    --glow: radial-gradient(65% 45% at 50% 0%, rgba(124, 58, 237, 0.08) 0%, rgba(250, 250, 250, 0) 100%);
+  }
+
+  /* Topbar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(9, 9, 11, 0.55);
+    backdrop-filter: blur(12px);
+  }
+  .canvas.light .topbar {
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
+  }
+  .brand-badge {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+
+  .search-trigger {
+    flex: 1;
+    max-width: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--pill-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .search-trigger:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+  .search-left { display: flex; align-items: center; gap: 7px; }
+  .kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--kbd-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .icon-btn {
+    height: 28px;
+    padding: 0 9px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .icon-btn:hover, .icon-btn.active {
+    background: var(--pill-bg);
+    color: var(--text);
+    border-color: var(--border-hover);
+  }
+  .avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #27272a, #3f3f46);
+    border: 1px solid var(--border);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    margin-left: 2px;
+  }
+
+  /* Subbar: view switch + group filter */
+  .subbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 20px 6px;
+  }
+  .tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tab {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--text);
+    background: var(--pill-bg);
+    border-color: var(--border);
+  }
+
+  .live-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+  .pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+    display: inline-block;
+  }
+
+  /* Content */
+  .content {
+    padding: 12px 20px 22px;
+  }
+  .section {
+    margin-bottom: 18px;
+  }
+  .section:last-child { margin-bottom: 0; }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-count {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: 1fr; }
+    .search-trigger { max-width: 140px; }
+  }
+
+  .card {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 14px;
+    border-radius: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+  }
+  .card:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-card-hover);
+    transform: translateY(-1px);
+  }
+  .card-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--pill-bg);
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: var(--accent-text);
+  }
+  .card-body { flex: 1; min-width: 0; }
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .card-name {
+    font-size: 13.5px;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .sso-tag {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--green);
+  }
+  .status-dot.warn { background: var(--amber); }
+  .card-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-host {
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .latency { color: var(--text-faint); }
+
+  /* Admin & OIDC Panel */
+  .panel {
+    display: none;
+    padding: 14px 20px 22px;
+  }
+  .panel.active { display: block; }
+  .admin-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    padding: 6px 12px;
+    border-radius: 7px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .admin-list {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-card);
+  }
+  .admin-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+  }
+  .admin-row:last-child { border-bottom: none; }
+  .drag-handle { color: var(--text-faint); font-family: var(--mono); cursor: grab; }
+  .code-box {
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 9px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: var(--accent-text);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .canvas.light .code-box {
+    background: #f4f4f6;
+    color: #3b0764;
+  }
+
+  /* Command Palette Modal */
+  .modal-backdrop {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.56);
+    backdrop-filter: blur(4px);
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 56px;
+    z-index: 20;
+  }
+  .modal-backdrop.open { display: flex; }
+  .palette {
+    width: 90%;
+    max-width: 440px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+  .palette-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+  .palette-list { padding: 6px; max-height: 220px; overflow-y: auto; }
+  .palette-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .palette-item:hover, .palette-item.selected {
+    background: var(--accent-soft);
+  }
+  .palette-host { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="canvas" id="root">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">Y</div>
+      <span>YPAGE</span>
+      <span class="brand-badge">PASS · SSO</span>
+    </div>
+
+    <button class="search-trigger" id="openSearch" type="button">
+      <span class="search-left">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>搜索项目或域名...</span>
+      </span>
+      <span class="kbd">⌘K</span>
+    </button>
+
+    <div class="actions">
+      <button class="icon-btn active" data-view="home" type="button">导航</button>
+      <button class="icon-btn" data-view="admin" type="button">管理</button>
+      <button class="icon-btn" data-view="oidc" type="button">PASS</button>
+      <button class="icon-btn" id="themeBtn" type="button" title="切换深浅色">☀︎</button>
+      <div class="avatar" title="admin@ypage.dev">A</div>
+    </div>
+  </header>
+
+  <!-- HOME VIEW -->
+  <div id="view-home">
+    <div class="subbar">
+      <div class="tabs" id="groupTabs">
+        <button class="tab active" data-group="all" type="button">全部 (6)</button>
+        <button class="tab" data-group="core" type="button">核心服务</button>
+        <button class="tab" data-group="dev" type="button">开发运维</button>
+        <button class="tab" data-group="lab" type="button">实验室</button>
+      </div>
+      <div class="live-summary">
+        <span class="pulse-dot"></span>
+        <span>5/6 ONLINE</span>
+      </div>
+    </div>
+
+    <main class="content" id="cardsContainer"></main>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <section class="panel" id="view-admin">
+    <div class="admin-bar">
+      <div>
+        <div style="font-size:14px;font-weight:600;">项目管理与排序</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">支持拖拽排序、健康探测配置与 JSON 备份导出</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="icon-btn" type="button">导出 JSON</button>
+        <button class="icon-btn" type="button">导入备份</button>
+        <button class="btn-primary" type="button">+ 新增项目</button>
+      </div>
+    </div>
+    <div class="admin-list">
+      <div class="admin-row">
+        <div style="display:flex;align-items:center;gap:10px;"><span class="drag-handle">⋮⋮</span><strong>YNotes 知识库</strong><span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;">notes.domain-c.com</span></div>
+        <div style="display:flex;align-items:center;gap:6px;"><span class="sso-tag">OIDC</span><button class="icon-btn" type="button">编辑</button></div>
+      </div>
+      <div class="admin-row">
+        <div style="display:flex;align-items:center;gap:10px;"><span class="drag-handle">⋮⋮</span><strong>Git Forge</strong><span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;">git.domain-d.dev</span></div>
+        <div style="display:flex;align-items:center;gap:6px;"><span class="sso-tag">OIDC</span><button class="icon-btn" type="button">编辑</button></div>
+      </div>
+      <div class="admin-row">
+        <div style="display:flex;align-items:center;gap:10px;"><span class="drag-handle">⋮⋮</span><strong>AI Workbench</strong><span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;">ai.domain-e.io</span></div>
+        <div style="display:flex;align-items:center;gap:6px;"><span class="sso-tag">OIDC</span><button class="icon-btn" type="button">编辑</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OIDC GUIDE VIEW -->
+  <section class="panel" id="view-oidc">
+    <div class="admin-bar">
+      <div>
+        <div style="font-size:14px;font-weight:600;">YPAGE PASS 跨域名 OIDC 接入速查</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Tinyauth v5 Discovery · 任意新项目复制以下配置即可免密登录</div>
+      </div>
+      <button class="btn-primary" id="copyOidc" type="button">复制环境变量</button>
+    </div>
+    <div class="code-box">OIDC_ISSUER=https://pass.domain-a.com
+OIDC_DISCOVERY=https://pass.domain-a.com/.well-known/openid-configuration
+OIDC_CLIENT_ID=your-app-id
+OIDC_CLIENT_SECRET=replace-with-client-secret
+OIDC_SCOPES="openid profile email groups"</div>
+  </section>
+
+  <!-- CMD+K MODAL -->
+  <div class="modal-backdrop" id="searchModal">
+    <div class="palette">
+      <input class="palette-input" id="searchInput" placeholder="输入项目名或域名，回车直达..." />
+      <div class="palette-list" id="searchResults"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GROUPS = [
+    {
+      id: "core", name: "核心服务", items: [
+        { name: "YNotes 知识库", desc: "个人笔记、文档归档与全文检索", host: "notes.domain-c.com", ms: "18ms", status: "ok", sso: true, icon: "book" },
+        { name: "YDrive 云盘", desc: "私有文件同步与多端素材库", host: "drive.domain-c.org", ms: "24ms", status: "ok", sso: true, icon: "drive" },
+      ]
+    },
+    {
+      id: "dev", name: "开发与运维", items: [
+        { name: "Git Forge", desc: "自托管代码仓库与 CI/CD 流水线", host: "git.domain-d.dev", ms: "14ms", status: "ok", sso: true, icon: "git" },
+        { name: "Metrics 监控", desc: "主机指标、容器负载与告警面板", host: "metrics.domain-e.net", ms: "31ms", status: "ok", sso: true, icon: "pulse" },
+      ]
+    },
+    {
+      id: "lab", name: "个人实验室", items: [
+        { name: "AI Workbench", desc: "私有模型聚合对话与 Prompt 工作台", host: "ai.domain-f.io", ms: "42ms", status: "ok", sso: true, icon: "cpu" },
+        { name: "RSS Reader", desc: "每日技术博客与信息流聚合阅读器", host: "rss.domain-g.app", ms: "高延迟", status: "warn", sso: false, icon: "rss" },
+      ]
+    }
+  ];
+
+  const ICONS = {
+    book: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>',
+    drive: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M6 12h.01M10 12h.01"/></svg>',
+    git: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 0 0 3 3h6"/></svg>',
+    pulse: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>',
+    cpu: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v3m6-3v3M9 20v3m6-3v3M1 9h3m-3 6h3m16-6h3m-3 6h3"/></svg>',
+    rss: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>'
+  };
+
+  let activeGroup = "all";
+  function renderCards() {
+    const container = document.getElementById("cardsContainer");
+    const visible = activeGroup === "all" ? GROUPS : GROUPS.filter(g => g.id === activeGroup);
+    container.innerHTML = visible.map(g => `
+      <section class="section">
+        <div class="section-head">
+          <div class="section-title">${g.name}</div>
+          <div class="section-count">${g.items.length} APPS</div>
+        </div>
+        <div class="grid">
+          ${g.items.map(it => `
+            <div class="card">
+              <div class="card-icon">${ICONS[it.icon]}</div>
+              <div class="card-body">
+                <div class="card-top">
+                  <div class="card-name">${it.name}</div>
+                  <div class="card-meta">
+                    ${it.sso ? '<span class="sso-tag">SSO</span>' : ''}
+                    <span class="status-dot ${it.status === 'warn' ? 'warn' : ''}"></span>
+                  </div>
+                </div>
+                <div class="card-desc">${it.desc}</div>
+                <div class="card-host">
+                  <span>${it.host}</span>
+                  <span class="latency">${it.ms}</span>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    `).join("");
+  }
+  renderCards();
+
+  document.querySelectorAll("#groupTabs .tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#groupTabs .tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeGroup = btn.dataset.group;
+      renderCards();
+    });
+  });
+
+  document.querySelectorAll("[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.view;
+      document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b === btn));
+      document.getElementById("view-home").style.display = v === "home" ? "block" : "none";
+      document.getElementById("view-admin").classList.toggle("active", v === "admin");
+      document.getElementById("view-oidc").classList.toggle("active", v === "oidc");
+    });
+  });
+
+  document.getElementById("themeBtn").addEventListener("click", (e) => {
+    const root = document.getElementById("root");
+    root.classList.toggle("light");
+    e.currentTarget.textContent = root.classList.contains("light") ? "☾" : "☀︎";
+  });
+
+  const modal = document.getElementById("searchModal");
+  const input = document.getElementById("searchInput");
+  const results = document.getElementById("searchResults");
+  const allApps = GROUPS.flatMap(g => g.items);
+
+  function renderSearch(q) {
+    const kw = (q || "").trim().toLowerCase();
+    const list = allApps.filter(a => !kw || a.name.toLowerCase().includes(kw) || a.host.toLowerCase().includes(kw) || a.desc.toLowerCase().includes(kw));
+    results.innerHTML = list.map((a, idx) => `
+      <div class="palette-item ${idx === 0 ? 'selected' : ''}">
+        <span>${a.name}</span>
+        <span class="palette-host">${a.host}</span>
+      </div>
+    `).join("") || '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;">无匹配项目</div>';
+  }
+  document.getElementById("openSearch").addEventListener("click", () => {
+    modal.classList.add("open");
+    input.value = "";
+    renderSearch("");
+    setTimeout(() => input.focus(), 10);
+  });
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("open"); });
+  input.addEventListener("input", () => renderSearch(input.value));
+  document.getElementById("copyOidc").addEventListener("click", (e) => {
+    e.currentTarget.textContent = "已复制 ✓";
+    setTimeout(() => e.currentTarget.textContent = "复制环境变量", 1500);
+  });
+</script>
+</body>
+</html>

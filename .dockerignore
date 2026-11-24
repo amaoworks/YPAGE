@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.pnpm-store
+*.tsbuildinfo
+.env
+.env.*
+data
+deploy
+docs

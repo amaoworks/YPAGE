@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YPAGE — 风格 2：Bento Frosted（柔光玻璃 Bento）</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: inherit;
+  }
+
+  .canvas {
+    --bg: #f3f5fb;
+    --mesh: radial-gradient(50% 45% at 15% 0%, rgba(99, 102, 241, 0.14) 0%, transparent 70%),
+            radial-gradient(45% 45% at 88% 8%, rgba(14, 165, 233, 0.14) 0%, transparent 70%),
+            radial-gradient(45% 40% at 50% 100%, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+    --card: rgba(255, 255, 255, 0.78);
+    --card-hover: rgba(255, 255, 255, 0.96);
+    --card-border: rgba(15, 23, 42, 0.07);
+    --shadow: 0 2px 12px rgba(15, 23, 42, 0.045), 0 1px 2px rgba(15, 23, 42, 0.03);
+    --shadow-hover: 0 10px 28px rgba(37, 99, 235, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04);
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+    --pill: rgba(255, 255, 255, 0.72);
+    --pill-active: #0f172a;
+    --pill-active-text: #ffffff;
+    --accent: #2563eb;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+    background-color: var(--bg);
+    background-image: var(--mesh);
+    color: var(--text);
+    border-radius: var(--radius, 16px);
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .canvas.dark {
+    --bg: #0c1018;
+    --mesh: radial-gradient(50% 45% at 15% 0%, rgba(99, 102, 241, 0.20) 0%, transparent 70%),
+            radial-gradient(45% 45% at 88% 8%, rgba(14, 165, 233, 0.16) 0%, transparent 70%);
+    --card: rgba(23, 29, 43, 0.72);
+    --card-hover: rgba(30, 39, 58, 0.92);
+    --card-border: rgba(255, 255, 255, 0.09);
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+    --shadow-hover: 0 12px 30px rgba(37, 99, 235, 0.22);
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-faint: #64748b;
+    --pill: rgba(255, 255, 255, 0.06);
+    --pill-active: #f8fafc;
+    --pill-active-text: #0f172a;
+    --accent: #60a5fa;
+  }
+
+  .wrap { padding: 18px 20px 22px; }
+
+  /* Floating glass navbar */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 700;
+    font-size: 14.5px;
+    letter-spacing: -0.02em;
+  }
+  .logo-sq {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(145deg, #3b82f6, #6366f1);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+  }
+  .search-pill {
+    flex: 1;
+    max-width: 245px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--pill);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .search-pill:hover { border-color: var(--accent); color: var(--text); }
+  .nav-right { display: flex; align-items: center; gap: 5px; }
+  .pill-btn {
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .pill-btn:hover { color: var(--text); background: var(--pill); }
+  .pill-btn.active { background: var(--pill-active); color: var(--pill-active-text); }
+
+  /* Hero greeting strip */
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 2px 4px;
+  }
+  .hero h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+  .hero-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .stat-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    box-shadow: var(--shadow);
+  }
+  .dot-ok { width: 7px; height: 7px; border-radius: 999px; background: #10b981; }
+  .dot-sso { width: 7px; height: 7px; border-radius: 999px; background: #3b82f6; }
+
+  /* Filter pills */
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .f-pill {
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .f-pill.active {
+    background: var(--pill-active);
+    color: var(--pill-active-text);
+    border-color: transparent;
+  }
+
+  /* Bento grid */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 600px) {
+    .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .bento-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 15px;
+    border-radius: 18px;
+    background: var(--card);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    min-height: 124px;
+  }
+  .bento-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    background: var(--card-hover);
+  }
+  .bento-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .squircle {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+  }
+  .c-indigo { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+  .c-sky    { background: linear-gradient(135deg, #0ea5e9, #3b82f6); }
+  .c-slate  { background: linear-gradient(135deg, #334155, #0f172a); }
+  .c-emerald{ background: linear-gradient(135deg, #10b981, #059669); }
+  .c-rose   { background: linear-gradient(135deg, #f43f5e, #ec4899); }
+  .c-amber  { background: linear-gradient(135deg, #f59e0b, #ea580c); }
+
+  .bento-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--pill);
+  }
+  .bento-name { font-size: 13.5px; font-weight: 650; letter-spacing: -0.01em; margin-bottom: 3px; }
+  .bento-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bento-foot {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+  }
+  .badge-pass {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Secondary panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .glass-box {
+    border-radius: 18px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+  .row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 12.5px;
+  }
+  .row-item:last-child { border-bottom: none; }
+  .code-block {
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.06);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .canvas.dark .code-block { background: rgba(0, 0, 0, 0.35); color: #93c5fd; }
+
+  /* Search overlay */
+  .overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.38);
+    backdrop-filter: blur(6px);
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 56px;
+    z-index: 20;
+  }
+  .overlay.open { display: flex; }
+  .cmd-card {
+    width: 90%;
+    max-width: 420px;
+    border-radius: 18px;
+    background: var(--card-hover);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    overflow: hidden;
+  }
+  .cmd-input {
+    width: 100%;
+    padding: 13px 16px;
+    border: none;
+    border-bottom: 1px solid var(--card-border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+  .cmd-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .cmd-item:hover { background: rgba(59, 130, 246, 0.1); }
+</style>
+</head>
+<body>
+<div class="canvas" id="root">
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">
+        <div class="logo-sq">Y</div>
+        <span>YPAGE</span>
+      </div>
+      <button class="search-pill" id="openSearch" type="button">
+        <span>搜索应用、服务...</span>
+        <span style="font-family:var(--mono);font-size:10.5px;opacity:0.75;">⌘K</span>
+      </button>
+      <div class="nav-right">
+        <button class="pill-btn active" data-view="home" type="button">主页</button>
+        <button class="pill-btn" data-view="admin" type="button">管理</button>
+        <button class="pill-btn" data-view="oidc" type="button">PASS</button>
+        <button class="pill-btn" id="themeBtn" type="button">☾</button>
+      </div>
+    </nav>
+
+    <div id="view-home">
+      <div class="hero">
+        <div>
+          <h2>欢迎回来，Admin</h2>
+          <div class="hero-sub">已通过 YPAGE PASS 登录 · 跨域名项目点击直达</div>
+        </div>
+        <div class="stat-chips">
+          <div class="chip"><span class="dot-ok"></span>5 / 6 在线</div>
+          <div class="chip"><span class="dot-sso"></span>SSO 就绪</div>
+        </div>
+      </div>
+
+      <div class="filters" id="filterBar">
+        <button class="f-pill active" data-g="all" type="button">全部应用</button>
+        <button class="f-pill" data-g="core" type="button">核心服务</button>
+        <button class="f-pill" data-g="dev" type="button">开发运维</button>
+        <button class="f-pill" data-g="lab" type="button">个人实验室</button>
+      </div>
+
+      <div class="bento-grid" id="grid"></div>
+    </div>
+
+    <div class="panel" id="view-admin">
+      <div class="glass-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <div style="font-weight:700;font-size:14.5px;">卡片与分组管理</div>
+            <div style="font-size:11.5px;color:var(--text-muted);">自由调整卡片顺序、图标配色、健康检测与 JSON 备份</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="f-pill" type="button">备份 JSON</button>
+            <button class="f-pill active" type="button">+ 添加卡片</button>
+          </div>
+        </div>
+        <div class="row-item"><span><strong>YNotes 知识库</strong> · <span style="color:var(--text-muted)">核心服务</span></span><span class="badge-pass">SSO</span></div>
+        <div class="row-item"><span><strong>YDrive 云盘</strong> · <span style="color:var(--text-muted)">核心服务</span></span><span class="badge-pass">SSO</span></div>
+        <div class="row-item"><span><strong>Git Forge</strong> · <span style="color:var(--text-muted)">开发运维</span></span><span class="badge-pass">SSO</span></div>
+      </div>
+    </div>
+
+    <div class="panel" id="view-oidc">
+      <div class="glass-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;font-size:14.5px;">YPAGE PASS 接入参数</div>
+            <div style="font-size:11.5px;color:var(--text-muted);">标准 OpenID Connect · 支持跨主域名免密登录</div>
+          </div>
+          <button class="f-pill active" id="copyBtn" type="button">一键复制</button>
+        </div>
+        <div class="code-block">OIDC_ISSUER=https://pass.domain-a.com
+OIDC_DISCOVERY=https://pass.domain-a.com/.well-known/openid-configuration
+OIDC_CLIENT_ID=your-new-app
+OIDC_SCOPES="openid profile email groups"</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="cmd-card">
+      <input class="cmd-input" id="cmdInput" placeholder="快速跳转任意服务..." />
+      <div id="cmdList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const APPS = [
+    { g: "core", name: "YNotes 知识库", desc: "个人笔记、文档归档与全文检索", host: "notes.domain-c.com", ms: "18ms", ok: true, sso: true, color: "c-indigo", letter: "N" },
+    { g: "core", name: "YDrive 云盘", desc: "私有文件同步与多端素材库", host: "drive.domain-c.org", ms: "24ms", ok: true, sso: true, color: "c-sky", letter: "D" },
+    { g: "dev",  name: "Git Forge", desc: "自托管代码仓库与自动化构建", host: "git.domain-d.dev", ms: "14ms", ok: true, sso: true, color: "c-slate", letter: "G" },
+    { g: "dev",  name: "Metrics 监控", desc: "主机指标、容器负载与告警看板", host: "metrics.domain-e.net", ms: "31ms", ok: true, sso: true, color: "c-emerald", letter: "M" },
+    { g: "lab",  name: "AI Workbench", desc: "私有模型聚合对话与 Prompt 工具箱", host: "ai.domain-f.io", ms: "42ms", ok: true, sso: true, color: "c-rose", letter: "A" },
+    { g: "lab",  name: "RSS Reader", desc: "技术博客与资讯订阅聚合阅读器", host: "rss.domain-g.app", ms: "慢响应", ok: false, sso: false, color: "c-amber", letter: "R" }
+  ];
+
+  let curGroup = "all";
+  function render() {
+    const list = curGroup === "all" ? APPS : APPS.filter(a => a.g === curGroup);
+    document.getElementById("grid").innerHTML = list.map(a => `
+      <div class="bento-card">
+        <div>
+          <div class="bento-top">
+            <div class="squircle ${a.color}">${a.letter}</div>
+            <div class="bento-status">
+              <span style="width:6px;height:6px;border-radius:999px;background:${a.ok ? '#10b981' : '#f59e0b'};display:inline-block;"></span>
+              <span>${a.ms}</span>
+            </div>
+          </div>
+          <div class="bento-name">${a.name}</div>
+          <div class="bento-desc">${a.desc}</div>
+        </div>
+        <div class="bento-foot">
+          <span>${a.host.split('.')[0]}.${a.host.split('.').slice(-1)}</span>
+          ${a.sso ? '<span class="badge-pass">PASS</span>' : '<span>LOCAL</span>'}
+        </div>
+      </div>
+    `).join("");
+  }
+  render();
+
+  document.querySelectorAll("#filterBar .f-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#filterBar .f-pill").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      curGroup = btn.dataset.g;
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.view;
+      document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b === btn));
+      document.getElementById("view-home").style.display = v === "home" ? "block" : "none";
+      document.getElementById("view-admin").classList.toggle("active", v === "admin");
+      document.getElementById("view-oidc").classList.toggle("active", v === "oidc");
+    });
+  });
+
+  document.getElementById("themeBtn").addEventListener("click", (e) => {
+    const root = document.getElementById("root");
+    root.classList.toggle("dark");
+    e.currentTarget.textContent = root.classList.contains("dark") ? "☀︎" : "☾";
+  });
+
+  const overlay = document.getElementById("overlay");
+  const cmdInput = document.getElementById("cmdInput");
+  const cmdList = document.getElementById("cmdList");
+  function renderCmd(q) {
+    const kw = (q || "").trim().toLowerCase();
+    const res = APPS.filter(a => !kw || a.name.toLowerCase().includes(kw) || a.host.toLowerCase().includes(kw));
+    cmdList.innerHTML = res.map(a => `<div class="cmd-item"><span>${a.name}</span><span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${a.host}</span></div>`).join("");
+  }
+  document.getElementById("openSearch").addEventListener("click", () => {
+    overlay.classList.add("open");
+    cmdInput.value = "";
+    renderCmd("");
+    setTimeout(() => cmdInput.focus(), 10);
+  });
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("open"); });
+  cmdInput.addEventListener("input", () => renderCmd(cmdInput.value));
+  document.getElementById("copyBtn").addEventListener("click", (e) => {
+    e.currentTarget.textContent = "已复制 ✓";
+    setTimeout(() => e.currentTarget.textContent = "一键复制", 1500);
+  });
+</script>
+</body>
+</html>

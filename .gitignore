@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+
+# Local env & runtime data
+.env
+.env.local
+.env.*.local
+data/
+deploy/tinyauth/config.yaml
+
+# Misc
+.DS_Store
+*.log
+*.db
+*.db-wal
+*.db-shm
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

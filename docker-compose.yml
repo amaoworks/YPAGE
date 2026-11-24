@@ -1,0 +1,35 @@
+services:
+  tinyauth:
+    image: ghcr.io/tinyauthapp/tinyauth:v5.2.0
+    restart: unless-stopped
+    environment:
+      TINYAUTH_CONFIGFILE: /tinyauth/config.yaml
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - type: bind
+        source: ./deploy/tinyauth/config.yaml
+        target: /tinyauth/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - tinyauth-data:/data
+
+  ypage:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      YPAGE_URL: ${YPAGE_URL:?Set YPAGE_URL in .env}
+      OIDC_ISSUER: ${OIDC_ISSUER:?Set OIDC_ISSUER in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set OIDC_CLIENT_ID in .env}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set OIDC_CLIENT_SECRET in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      PROBE_ALLOWED_PRIVATE_HOSTS: ${PROBE_ALLOWED_PRIVATE_HOSTS:-}
+    volumes:
+      - ypage-data:/app/data
+
+volumes:
+  tinyauth-data:
+  ypage-data:
