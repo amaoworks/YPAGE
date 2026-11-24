@@ -8,7 +8,7 @@ export const GET = requireApiAuth(async (request) => {
   return new Response(body, {
     headers: {
       "Content-Type": type,
-      "Cache-Control": "private, no-store",
+      "Cache-Control": "private, max-age=3600",
       "Content-Security-Policy": "default-src 'none'; sandbox",
       "X-Content-Type-Options": "nosniff",
     },

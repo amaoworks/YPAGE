@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Settings } from "@/lib/db/schema";
 
 function resolvedDark(): boolean {
   const root = document.documentElement;
@@ -9,7 +10,7 @@ function resolvedDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ defaultTheme }: { defaultTheme?: Settings["defaultTheme"] }) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -17,8 +18,13 @@ export function ThemeToggle() {
     const sync = () => setDark(resolvedDark());
     sync();
     media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => {
+      media.removeEventListener("change", sync);
+      observer.disconnect();
+    };
+  }, [defaultTheme]);
 
   function toggle() {
     const next = dark ? "light" : "dark";
@@ -29,8 +35,10 @@ export function ThemeToggle() {
     setDark(next === "dark");
   }
 
+  const label = dark ? "切换到浅色模式" : "切换到深色模式";
+
   return (
-    <button type="button" className="nav-link" onClick={toggle} aria-pressed={dark} aria-label={dark ? "切换到浅色" : "切换到深色"}>
+    <button type="button" className="nav-link" onClick={toggle} aria-pressed={dark} aria-label={label} title={label}>
       ◐
     </button>
   );

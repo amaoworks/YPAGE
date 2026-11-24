@@ -25,17 +25,49 @@ export function isHttpUrl(value: string): boolean {
 
 export type ProbeTone = "online" | "degraded" | "offline" | "pending";
 
+export function formatCount(count: number): string {
+  return String(Math.max(0, count)).padStart(2, "0");
+}
+
+export function formatGroupIcon(icon: string): string {
+  const trimmed = icon.trim();
+  if (!trimmed || /^[a-z0-9_-]{3,}$/i.test(trimmed)) return "";
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const segments = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(trimmed)];
+    if (segments.length > 2) return "";
+    return trimmed;
+  }
+  return [...trimmed].length <= 4 ? trimmed : "";
+}
+
 export function probeTone(probe: Pick<Probe, "status" | "latencyMs"> | undefined): ProbeTone {
   if (!probe) return "pending";
   if (probe.status === "offline") return "offline";
-  if (probe.latencyMs >= slowProbeMs) return "degraded";
+  if (probe.status === "degraded" || probe.latencyMs >= slowProbeMs) return "degraded";
   return "online";
 }
 
-export function probeLabel(probe: Pick<Probe, "status" | "latencyMs"> | undefined): string {
+export function probeLabel(probe: Pick<Probe, "status" | "httpStatus" | "latencyMs"> | undefined): string {
   if (!probe) return "···";
   if (probe.status === "offline") return "OFF";
+  if (probe.status === "degraded" && probe.httpStatus !== null) return `HTTP ${probe.httpStatus}`;
   return `${probe.latencyMs}ms`;
+}
+
+export function probeTitle(probe: Pick<Probe, "status" | "httpStatus" | "latencyMs" | "checkedAt"> | undefined): string {
+  if (!probe) return "等待健康检查结果";
+  const parsedTime = new Date(probe.checkedAt);
+  const timeSuffix = Number.isNaN(parsedTime.getTime())
+    ? ""
+    : ` · ${parsedTime.toLocaleTimeString("zh-CN", { hour12: false })}`;
+  if (probe.status === "offline") {
+    return `服务不可达或超时 · ${probe.latencyMs}ms${timeSuffix}`;
+  }
+  if (probe.status === "degraded") {
+    return `HTTP ${probe.httpStatus ?? "异常"}（非 2xx-3xx） · ${probe.latencyMs}ms${timeSuffix}`;
+  }
+  const slow = probe.latencyMs >= slowProbeMs ? "（高延迟）" : "";
+  return `HTTP ${probe.httpStatus ?? 200} · ${probe.latencyMs}ms${slow}${timeSuffix}`;
 }
 
 export function healthSummary(
@@ -64,6 +96,19 @@ export function envTemplate(oidc: PublicOidc): string {
   ];
   if (!oidc.issuer) lines.unshift("# 当前环境没有配置 OIDC_ISSUER，下面是占位模板");
   return lines.join("\n");
+}
+
+export function tinyauthClientTemplate(): string {
+  return [
+    "oidc:",
+    "  clients:",
+    "    my_app:",
+    '      name: "我的新项目"',
+    '      clientId: "your-service-id"',
+    '      clientSecret: "REPLACE_WITH_OPENSSL_RAND_HEX_24"',
+    "      trustedRedirectUris:",
+    '        - "https://app.example.com/api/auth/callback"',
+  ].join("\n");
 }
 
 export function toIconName(value: string): string {

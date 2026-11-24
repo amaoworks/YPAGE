@@ -1,3 +1,4 @@
+import type { App } from "@/lib/db/schema";
 import type { PortalGroup } from "@/lib/portal-types";
 import { appHost } from "@/lib/view";
 
@@ -8,6 +9,9 @@ export type SearchHit = {
   groupName: string;
   host: string;
   url: string;
+  iconType: App["iconType"];
+  iconValue: string;
+  ssoEnabled: boolean;
   openInNewTab: boolean;
 };
 
@@ -26,6 +30,9 @@ export function searchApps(groups: PortalGroup[], query: string): SearchHit[] {
         groupName: group.name,
         host,
         url: app.url,
+        iconType: app.iconType,
+        iconValue: app.iconValue,
+        ssoEnabled: app.ssoEnabled,
         openInNewTab: app.openInNewTab,
       });
     }

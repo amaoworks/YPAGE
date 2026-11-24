@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { copyText } from "@/lib/client/api";
-import { envTemplate } from "@/lib/view";
+import { envTemplate, tinyauthClientTemplate } from "@/lib/view";
 import { usePortal } from "@/components/shell";
 
 export function OidcView() {
   const { data, notify } = usePortal();
   const template = envTemplate(data.oidc);
+  const clientYaml = tinyauthClientTemplate();
   const [copied, setCopied] = useState("");
 
   async function copy(label: string, value: string) {
@@ -30,11 +31,11 @@ export function OidcView() {
     <section className="panel">
       <div className="panel-head">
         <div>
-          <h1>YPAGE PASS · OIDC ENDPOINTS</h1>
+          <h1>{data.oidc.brandName.toUpperCase()} · OIDC ENDPOINTS</h1>
           <p className="kicker">DISCOVERY TEMPLATE FOR SELF-HOSTED APPS</p>
         </div>
-        <button type="button" className="nav-link active" onClick={() => void copy("env", template)}>
-          {copied === "env" ? "COPIED" : "COPY ENV"}
+        <button type="button" className="inv-btn" onClick={() => void copy("env", template)}>
+          {copied === "env" ? "COPIED ✓" : "COPY ENV"}
         </button>
       </div>
       <dl className="endpoint-list">
@@ -43,12 +44,29 @@ export function OidcView() {
             <dt>{label}</dt>
             <dd>{value}</dd>
             <button type="button" className="text-btn" onClick={() => void copy(label, value)} disabled={value === "未配置"}>
-              {copied === label ? "COPIED" : "COPY"}
+              {copied === label ? "COPIED ✓" : "COPY"}
             </button>
           </div>
         ))}
       </dl>
-      <pre className="code-mono">{template}</pre>
+      <div className="code-block">
+        <div className="code-head">
+          <span>.ENV TEMPLATE</span>
+          <button type="button" className="text-btn" onClick={() => void copy("env-block", template)}>
+            {copied === "env-block" ? "COPIED ✓" : "COPY"}
+          </button>
+        </div>
+        <pre className="code-mono">{template}</pre>
+      </div>
+      <div className="code-block">
+        <div className="code-head">
+          <span>TINYAUTH CONFIG.YAML CLIENT</span>
+          <button type="button" className="text-btn" onClick={() => void copy("yaml", clientYaml)}>
+            {copied === "yaml" ? "COPIED ✓" : "COPY YAML"}
+          </button>
+        </div>
+        <pre className="code-mono">{clientYaml}</pre>
+      </div>
       <p className="note">
         客户端 ID 和密钥写在 Tinyauth 的 config.yaml 里，不保存在 YPAGE。每个项目首次接入时需要确认授权；浏览器里已有 {data.oidc.brandName} 会话后，不会再次输入密码。
       </p>

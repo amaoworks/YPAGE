@@ -3,7 +3,7 @@ import { listApps, getSettings } from "@/lib/db/store";
 import { probe } from "@/lib/http/probe";
 
 type Check = {
-  status: "online" | "offline";
+  status: "online" | "degraded" | "offline";
   httpStatus: number | null;
   latencyMs: number;
   checkedAt: string;
@@ -27,8 +27,10 @@ async function check(url: string): Promise<Check> {
   } catch {
     httpStatus = null;
   }
+  const status: Check["status"] =
+    httpStatus === null ? "offline" : httpStatus >= 200 && httpStatus < 400 ? "online" : "degraded";
   return {
-    status: httpStatus !== null && httpStatus >= 200 && httpStatus < 400 ? "online" : "offline",
+    status,
     httpStatus,
     latencyMs: Math.round(performance.now() - started),
     checkedAt: new Date().toISOString(),

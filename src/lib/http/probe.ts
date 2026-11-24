@@ -5,15 +5,15 @@ import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
 import { webUrl } from "@/lib/db/schema";
 
-const privateRanges = new Set(["private", "uniqueLocal", "loopback"]);
+const privateRanges = new Set(["private", "uniqueLocal", "loopback", "carrierGradeNat"]);
 const redirects = new Set([301, 302, 303, 307, 308]);
 const globalIPv6 = ipaddr.IPv6.parse("2000::");
 
 function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
     signal.addEventListener("abort", abort, { once: true });
-    if (signal.aborted) abort();
     void pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
   });
 }

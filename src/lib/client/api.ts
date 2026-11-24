@@ -1,9 +1,12 @@
 export class RequestError extends Error {
+  readonly status: number;
+
   constructor(
     message: string,
-    readonly status: number,
+    status: number,
   ) {
     super(message);
+    this.status = status;
   }
 }
 

@@ -7,6 +7,7 @@ import { apiSend } from "@/lib/client/api";
 import type { PortalData, Probe, StatusPayload, StatusPhase } from "@/lib/portal-types";
 import { searchApps, stepIndex, type SearchHit } from "@/lib/search";
 import { displayName } from "@/lib/view";
+import { AppIcon } from "@/components/app-icon";
 import { Modal } from "@/components/modal";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -90,6 +91,16 @@ export function Shell({ initial, children }: { initial: PortalData; children: Re
     }
   }, [notify]);
 
+  const probedSignature = useMemo(
+    () =>
+      data.groups
+        .flatMap((group) => group.apps)
+        .filter((app) => app.healthCheckEnabled)
+        .map((app) => `${app.id}:${app.healthCheckUrl ?? app.url}`)
+        .join("|"),
+    [data.groups],
+  );
+
   useEffect(() => {
     if (!data.settings.showHealthStatus) {
       setStatuses(new Map());
@@ -108,13 +119,27 @@ export function Shell({ initial, children }: { initial: PortalData; children: Re
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [data.settings.showHealthStatus, data.settings.healthCheckIntervalSec, refreshStatus]);
+  }, [data.settings.showHealthStatus, data.settings.healthCheckIntervalSec, probedSignature, refreshStatus]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSearchOpen((open) => !open);
+        return;
+      }
+      if (
+        event.key === "/" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !document.querySelector("dialog[open]")
+      ) {
+        const target = event.target as HTMLElement | null;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) return;
+        event.preventDefault();
+        setSearchOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -158,16 +183,18 @@ export function Shell({ initial, children }: { initial: PortalData; children: Re
     [data, refresh, statuses, statusPhase, refreshStatus, notify],
   );
 
+  const brandSubtitle = data.oidc.brandName.trim() === "YPAGE PASS" ? "/ PASS-OIDC" : `/ ${data.oidc.brandName.toUpperCase()}`;
+
   return (
     <PortalContext.Provider value={value}>
       <div className="shell">
         <header className="header">
           <Link href="/" className="wordmark">
             <strong>{data.settings.siteTitle}</strong>
-            <span>/ PASS-OIDC</span>
+            <span>{brandSubtitle}</span>
           </Link>
           <div className="h-controls">
-            <button type="button" className="cmd-btn" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchOpen(true)}>
+            <button type="button" className="cmd-btn" aria-keyshortcuts="Control+K Meta+K /" onClick={() => setSearchOpen(true)}>
               SEARCH <span>⌘K</span>
             </button>
             {nav.map((item) => (
@@ -180,7 +207,7 @@ export function Shell({ initial, children }: { initial: PortalData; children: Re
                 {item.label}
               </Link>
             ))}
-            <ThemeToggle />
+            <ThemeToggle defaultTheme={data.settings.defaultTheme} />
             <div className="user-menu" ref={menuRef}>
               <button
                 type="button"
@@ -193,8 +220,10 @@ export function Shell({ initial, children }: { initial: PortalData; children: Re
               </button>
               {menuOpen ? (
                 <div className="user-pop" role="menu">
-                  <p>{data.user.name}</p>
-                  {data.user.email ? <p>{data.user.email}</p> : null}
+                  <div className="user-pop-meta">
+                    <p className="user-pop-name">{data.user.name}</p>
+                    {data.user.email ? <p className="user-pop-sub">{data.user.email}</p> : null}
+                  </div>
                   <button type="button" className="text-btn" role="menuitem" onClick={() => void logout()}>
                     退出登录
                   </button>
@@ -219,6 +248,7 @@ function CommandPalette({ groups, onClose }: { groups: PortalData["groups"]; onC
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const totalApps = useMemo(() => groups.reduce((sum, group) => sum + group.apps.length, 0), [groups]);
   const hits = useMemo(() => searchApps(groups, query), [groups, query]);
   const index = hits.length === 0 ? 0 : Math.min(selected, hits.length - 1);
 
@@ -265,7 +295,9 @@ function CommandPalette({ groups, onClose }: { groups: PortalData["groups"]; onC
         }}
       />
       <div className="command-list" id="search-list" role="listbox">
-        {hits.length === 0 ? <div className="command-empty">NO MATCHES</div> : null}
+        {hits.length === 0 ? (
+          <div className="command-empty">{totalApps === 0 ? "NO APPS REGISTERED" : "NO MATCHES"}</div>
+        ) : null}
         {hits.map((hit, hitIndex) => (
           <button
             key={hit.appId}
@@ -277,10 +309,21 @@ function CommandPalette({ groups, onClose }: { groups: PortalData["groups"]; onC
             onMouseEnter={() => setSelected(hitIndex)}
             onClick={() => choose(hit)}
           >
-            <span>{hit.name}</span>
-            <span>{hit.host}</span>
+            <span className="command-primary">
+              <AppIcon app={hit} size={15} />
+              <span className="command-name">{hit.name}</span>
+              <span className="command-group">{hit.groupName}</span>
+            </span>
+            <span className="command-meta">
+              {hit.ssoEnabled ? <span className="tag-mono">OIDC</span> : null}
+              <span className="command-host">{hit.host}</span>
+            </span>
           </button>
         ))}
+      </div>
+      <div className="command-foot">
+        <span>↑↓ SELECT · ↵ OPEN · ESC CLOSE</span>
+        <span>{hits.length}/{totalApps}</span>
       </div>
     </Modal>
   );

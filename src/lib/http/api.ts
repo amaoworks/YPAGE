@@ -3,13 +3,20 @@ import { appOrigin, devAuthBypass } from "@/lib/config";
 import { getCurrentSession } from "@/lib/auth/session";
 
 export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly details?: unknown;
+
   constructor(
-    readonly status: number,
-    readonly code: string,
+    status: number,
+    code: string,
     message: string,
-    readonly details?: unknown,
+    details?: unknown,
   ) {
     super(message);
+    this.status = status;
+    this.code = code;
+    this.details = details;
   }
 }
 
@@ -23,13 +30,29 @@ export function unauthorized(): Response {
   return json({ error: { code: "unauthorized", message: "Sign in required" } }, 401);
 }
 
+function isAllowedDevOrigin(origin: string, request: Request): boolean {
+  try {
+    const parsed = new URL(origin);
+    const localHost = ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+    const requestHost = request.headers.get("host");
+    return localHost && Boolean(requestHost) && parsed.host === requestHost &&
+      (parsed.protocol === "http:" || parsed.protocol === "https:");
+  } catch {
+    return false;
+  }
+}
+
 export function assertSameOrigin(request: Request): void {
   const origin = request.headers.get("origin");
   if (origin) {
-    const expectedOrigin = devAuthBypass && !process.env.YPAGE_URL
-      ? `${new URL(request.url).protocol}//${request.headers.get("host")}`
-      : appOrigin();
-    if (origin !== expectedOrigin) throw new ApiError(403, "forbidden", "Origin is not allowed");
+    if (devAuthBypass && isAllowedDevOrigin(origin, request)) {
+      // Allow local dev browser origin even when .env defines a production YPAGE_URL.
+    } else {
+      const expectedOrigin = devAuthBypass && !process.env.YPAGE_URL?.trim()
+        ? `${new URL(request.url).protocol}//${request.headers.get("host")}`
+        : appOrigin();
+      if (origin !== expectedOrigin) throw new ApiError(403, "forbidden", "Origin is not allowed");
+    }
   }
   if (request.headers.get("sec-fetch-site") === "cross-site") {
     throw new ApiError(403, "forbidden", "Cross-site request is not allowed");

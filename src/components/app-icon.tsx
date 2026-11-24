@@ -7,6 +7,11 @@ import { isHttpUrl, toIconName } from "@/lib/view";
 
 const knownIcons = new Set<string>(iconNames);
 
+export function isKnownLucideIcon(name: string): boolean {
+  const normalized = toIconName(name);
+  return Boolean(normalized) && knownIcons.has(normalized);
+}
+
 function LucideGlyph({ name, size }: { name: string; size: number }) {
   const normalized = toIconName(name);
   if (!knownIcons.has(normalized)) {
@@ -52,7 +57,10 @@ export function AppIcon({
     );
   }
   if (app.iconType === "lucide" && app.iconValue.trim()) return <LucideGlyph name={app.iconValue} size={size} />;
-  if (app.iconType === "image" && isHttpUrl(app.iconValue)) return <Raster src={app.iconValue} size={size} remote />;
+  if (app.iconType === "image" && isHttpUrl(app.iconValue)) {
+    return <Raster key={app.iconValue} src={app.iconValue} size={size} remote />;
+  }
   if (!isHttpUrl(app.url)) return <span className="icon-fallback" style={{ width: size, height: size }} aria-hidden="true" />;
-  return <Raster src={`/api/favicon?url=${encodeURIComponent(app.url)}`} size={size} remote={false} />;
+  const faviconSrc = `/api/favicon?url=${encodeURIComponent(app.url)}`;
+  return <Raster key={faviconSrc} src={faviconSrc} size={size} remote={false} />;
 }

@@ -25,7 +25,7 @@ export type PortalData = {
 
 export type Probe = {
   appId: string;
-  status: "online" | "offline";
+  status: "online" | "degraded" | "offline";
   httpStatus: number | null;
   latencyMs: number;
   checkedAt: string;

@@ -7,7 +7,7 @@ import { apiSend, RequestError } from "@/lib/client/api";
 import { adjacentIndex, reorderIndex } from "@/lib/order";
 import type { Backup } from "@/lib/db/schema";
 import type { PortalGroup } from "@/lib/portal-types";
-import { appHost, probeLabel, probeTone } from "@/lib/view";
+import { appHost, formatCount, formatGroupIcon, probeLabel, probeTitle, probeTone } from "@/lib/view";
 import { AppIcon } from "@/components/app-icon";
 import { AppEditor, GroupEditor } from "@/components/editors";
 import { Field, Modal, Switch } from "@/components/modal";
@@ -15,7 +15,7 @@ import { usePortal } from "@/components/shell";
 
 type DragState = { kind: "group" | "app"; id: string };
 type OverState = { kind: "group"; beforeId: string | null } | { kind: "app"; groupId: string; beforeId: string | null };
-type ConfirmState = { title: string; body: string; label: string; run: () => Promise<void> };
+type ConfirmState = { title: string; body: string; label: string; run: () => Promise<void>; onCancel?: () => void };
 
 function settingsDraft(settings: Settings) {
   return {
@@ -24,7 +24,7 @@ function settingsDraft(settings: Settings) {
     passBrandName: settings.passBrandName,
     defaultTheme: settings.defaultTheme,
     showHealthStatus: settings.showHealthStatus,
-    healthCheckIntervalSec: settings.healthCheckIntervalSec,
+    healthCheckIntervalSec: String(settings.healthCheckIntervalSec),
   };
 }
 
@@ -53,6 +53,7 @@ export function AdminView() {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [backup, setBackup] = useState<Backup | null>(null);
+  const [importing, setImporting] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [over, setOver] = useState<OverState | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -151,18 +152,21 @@ export function AdminView() {
       setSettingsError("站点标题和认证品牌不能为空");
       return;
     }
-    if (!Number.isInteger(draft.healthCheckIntervalSec) || draft.healthCheckIntervalSec < 5 || draft.healthCheckIntervalSec > 3600) {
-      setSettingsError("探测间隔需要在 5 到 3600 秒之间");
+    const intervalSec = Number(draft.healthCheckIntervalSec.trim());
+    if (!draft.healthCheckIntervalSec.trim() || !Number.isInteger(intervalSec) || intervalSec < 5 || intervalSec > 3600) {
+      setSettingsError("探测间隔需要在 5 到 3600 秒之间的整数");
       return;
     }
     setSavingSettings(true);
     setSettingsError("");
     try {
       await apiSend("/api/settings", "PATCH", {
-        ...draft,
         siteTitle: draft.siteTitle.trim(),
         siteSubtitle: draft.siteSubtitle.trim(),
         passBrandName: draft.passBrandName.trim(),
+        defaultTheme: draft.defaultTheme,
+        showHealthStatus: draft.showHealthStatus,
+        healthCheckIntervalSec: intervalSec,
       });
       await refresh();
       notify("站点设置已保存");
@@ -190,11 +194,16 @@ export function AdminView() {
   }
 
   async function importBackup(mode: "merge" | "replace") {
-    if (!backup) return;
-    await commit(async () => {
-      await apiSend("/api/backup/import", "POST", { mode, backup });
-      setBackup(null);
-    }, mode === "replace" ? "备份已覆盖恢复" : "备份已合并");
+    if (!backup || importing) return;
+    setImporting(true);
+    try {
+      await commit(async () => {
+        await apiSend("/api/backup/import", "POST", { mode, backup });
+        setBackup(null);
+      }, mode === "replace" ? "备份已覆盖恢复" : "备份已合并");
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function chooseFile(file: File | undefined) {
@@ -252,8 +261,6 @@ export function AdminView() {
           <h1>INDEX REGISTRY / 管理表</h1>
           <p className="kicker">CRUD · DRAG ORDER · JSON SNAPSHOT</p>
         </div>
-      </div>
-      <div className="toolbar">
         <div className="h-controls">
           <button type="button" className="cmd-btn" onClick={() => void exportBackup()}>EXPORT .JSON</button>
           <button type="button" className="cmd-btn" onClick={() => fileRef.current?.click()}>IMPORT .JSON</button>
@@ -267,19 +274,209 @@ export function AdminView() {
               event.target.value = "";
             }}
           />
-        </div>
-        <div className="h-controls">
           <button type="button" className="text-btn" onClick={() => setEditor({ type: "group", group: null })}>+ NEW GROUP</button>
           <button
             type="button"
             className="inv-btn"
             disabled={!firstGroup}
+            title={!firstGroup ? "请先创建一个分组" : undefined}
             onClick={() => firstGroup && setEditor({ type: "app", app: null, groupId: firstGroup.id })}
           >
             + NEW APP
           </button>
         </div>
       </div>
+
+      {data.groups.length === 0 ? (
+        <div className="group-block">
+          <div className="group-empty">
+            <span>还没有分组。先新建一个分组，再登记项目。</span>
+            <button type="button" className="text-btn" onClick={() => setEditor({ type: "group", group: null })}>+ NEW GROUP</button>
+          </div>
+        </div>
+      ) : null}
+
+      {data.groups.map((group, groupIndex) => {
+        const groupIcon = formatGroupIcon(group.icon);
+        const isDraggingGroup = drag?.kind === "group" && drag.id === group.id;
+        return (
+          <section
+            key={group.id}
+            className={isDraggingGroup ? "group-block dragging" : "group-block"}
+            onDragOver={(event) => {
+              if (dragRef.current?.kind !== "group") return;
+              event.preventDefault();
+              markOver({ kind: "group", beforeId: group.id });
+            }}
+            onDrop={(event) => {
+              if (dragRef.current?.kind !== "group") return;
+              event.preventDefault();
+              dropGroup(group.id);
+            }}
+          >
+            <div className={over?.kind === "group" && over.beforeId === group.id ? "section-bar insert-before" : "section-bar"}>
+              <span className="section-label" title={group.description}>
+                <span>{formatCount(groupIndex + 1)} / {group.name}{groupIcon ? ` ${groupIcon}` : ""}</span>
+                {group.description ? <span className="section-desc">{group.description}</span> : null}
+              </span>
+              <span className="section-actions">
+                <button type="button" className="text-btn" onClick={() => setEditor({ type: "app", app: null, groupId: group.id })}>+ APP</button>
+                <button type="button" className="icon-btn" aria-label="上移分组" disabled={groupIndex === 0} onClick={() => void moveGroup(group.id, -1)}>
+                  <ChevronUp size={14} strokeWidth={1.75} />
+                </button>
+                <button type="button" className="icon-btn" aria-label="下移分组" disabled={groupIndex === data.groups.length - 1} onClick={() => void moveGroup(group.id, 1)}>
+                  <ChevronDown size={14} strokeWidth={1.75} />
+                </button>
+                <button type="button" className="text-btn" onClick={() => setEditor({ type: "group", group })}>EDIT</button>
+                <button type="button" className="text-btn danger-btn" onClick={() => askDeleteGroup(group)}>DELETE</button>
+                <button
+                  type="button"
+                  className="drag-handle grip"
+                  draggable
+                  aria-label={`拖拽分组 ${group.name}`}
+                  onDragStart={(event) => startDrag(event, { kind: "group", id: group.id }, beginDrag)}
+                  onDragEnd={finishDrag}
+                >
+                  <GripVertical size={14} strokeWidth={1.75} />
+                </button>
+                <span className="section-count">{group.apps.length} NODES</span>
+              </span>
+            </div>
+            {group.apps.length > 0 ? (
+              <div className="table-wrap">
+                <table className="mono-table">
+                  <thead>
+                    <tr>
+                      <th>NAME</th>
+                      <th>DOMAIN</th>
+                      <th>AUTH</th>
+                      <th>PROBE</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.apps.map((app, appIndex) => {
+                      const probe = statuses.get(app.id);
+                      const isDraggingApp = drag?.kind === "app" && drag.id === app.id;
+                      const isInsertBefore = over?.kind === "app" && over.groupId === group.id && over.beforeId === app.id;
+                      const rowClass = [isDraggingApp ? "dragging" : "", isInsertBefore ? "insert-before" : ""].filter(Boolean).join(" ") || undefined;
+                      return (
+                        <tr
+                          key={app.id}
+                          className={rowClass}
+                          onDragOver={(event) => {
+                            if (dragRef.current?.kind !== "app") return;
+                            event.preventDefault();
+                            markOver({ kind: "app", groupId: group.id, beforeId: app.id });
+                          }}
+                          onDrop={(event) => {
+                            if (dragRef.current?.kind !== "app") return;
+                            event.preventDefault();
+                            dropApp(group.id, app.id);
+                          }}
+                        >
+                          <td>
+                            <div className="name-cell">
+                              <button
+                                type="button"
+                                className="drag-handle grip"
+                                draggable
+                                aria-label={`拖拽项目 ${app.name}`}
+                                onDragStart={(event) => startDrag(event, { kind: "app", id: app.id }, beginDrag)}
+                                onDragEnd={finishDrag}
+                              >
+                                <GripVertical size={14} strokeWidth={1.75} />
+                              </button>
+                              <AppIcon app={app} size={16} />
+                              <button type="button" onClick={() => setEditor({ type: "app", app, groupId: group.id })}>{app.name}</button>
+                            </div>
+                          </td>
+                          <td className="domain">
+                            <a href={app.url} target={app.openInNewTab ? "_blank" : undefined} rel={app.openInNewTab ? "noopener noreferrer" : undefined}>
+                              {appHost(app.url)}
+                            </a>
+                          </td>
+                          <td>
+                            <Switch
+                              checked={app.ssoEnabled}
+                              label={`${app.name} SSO`}
+                              disabled={pending === `${app.id}:sso`}
+                              onChange={(checked) => void patchApp(app.id, `${app.id}:sso`, { ssoEnabled: checked })}
+                            />
+                          </td>
+                          <td>
+                            <span className="badges">
+                              <Switch
+                                checked={app.healthCheckEnabled}
+                                label={`${app.name} 健康检查`}
+                                disabled={pending === `${app.id}:health`}
+                                onChange={(checked) => void patchApp(app.id, `${app.id}:health`, { healthCheckEnabled: checked })}
+                              />
+                              {data.settings.showHealthStatus && app.healthCheckEnabled ? (
+                                <span className="tag-mono" title={probeTitle(probe)}>
+                                  <span className={`dot ${probeTone(probe)}`} />
+                                  {probeLabel(probe)}
+                                </span>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="section-actions">
+                              <button type="button" className="icon-btn" aria-label="上移项目" disabled={appIndex === 0} onClick={() => void moveApp(group, app.id, -1)}>
+                                <ChevronUp size={14} strokeWidth={1.75} />
+                              </button>
+                              <button type="button" className="icon-btn" aria-label="下移项目" disabled={appIndex === group.apps.length - 1} onClick={() => void moveApp(group, app.id, 1)}>
+                                <ChevronDown size={14} strokeWidth={1.75} />
+                              </button>
+                              <button type="button" className="text-btn" onClick={() => setEditor({ type: "app", app, groupId: group.id })}>EDIT</button>
+                              <button type="button" className="text-btn danger-btn" onClick={() => askDeleteApp(app)}>DELETE</button>
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : drag?.kind !== "app" ? (
+              <div className="group-empty">
+                <span>此分组还没有项目。</span>
+                <button type="button" className="text-btn" onClick={() => setEditor({ type: "app", app: null, groupId: group.id })}>+ ADD APP</button>
+              </div>
+            ) : null}
+            {drag?.kind === "app" ? (
+              <div
+                className={over?.kind === "app" && over.groupId === group.id && over.beforeId === null ? "drop-end active" : "drop-end"}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  markOver({ kind: "app", groupId: group.id, beforeId: null });
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  dropApp(group.id, null);
+                }}
+              >
+                放到「{group.name}」末尾
+              </div>
+            ) : null}
+          </section>
+        );
+      })}
+      {drag?.kind === "group" ? (
+        <div
+          className={over?.kind === "group" && over.beforeId === null ? "drop-end active" : "drop-end"}
+          onDragOver={(event) => {
+            event.preventDefault();
+            markOver({ kind: "group", beforeId: null });
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            dropGroup(null);
+          }}
+        >
+          放到全部分组末尾
+        </div>
+      ) : null}
 
       <form
         className="settings"
@@ -288,7 +485,10 @@ export function AdminView() {
           void saveSettings();
         }}
       >
-        <h2>站点设置</h2>
+        <div className="settings-head">
+          <h2>SITE SETTINGS / 站点设置</h2>
+          {dirty ? <span className="tag-mono">UNSAVED</span> : null}
+        </div>
         <div className="settings-grid">
           <Field label="站点标题">
             <input value={draft.siteTitle} maxLength={120} onChange={(event) => setDraft({ ...draft, siteTitle: event.target.value })} />
@@ -306,16 +506,14 @@ export function AdminView() {
               <option value="dark">深色</option>
             </select>
           </Field>
-          <Field label="探测间隔（秒）">
+          <Field label="探测间隔（秒）" hint="范围 5–3600 秒。">
             <input
               type="number"
               min={5}
               max={3600}
+              inputMode="numeric"
               value={draft.healthCheckIntervalSec}
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                if (Number.isFinite(value)) setDraft({ ...draft, healthCheckIntervalSec: value });
-              }}
+              onChange={(event) => setDraft({ ...draft, healthCheckIntervalSec: event.target.value })}
             />
           </Field>
           <label className="switch-row wide">
@@ -325,168 +523,22 @@ export function AdminView() {
         </div>
         {settingsError ? <p className="form-error">{settingsError}</p> : null}
         <div className="actions">
+          {dirty ? (
+            <button
+              type="button"
+              className="text-btn"
+              disabled={savingSettings}
+              onClick={() => {
+                setDraft(serverDraft);
+                setSettingsError("");
+              }}
+            >
+              RESET
+            </button>
+          ) : null}
           <button type="submit" className="inv-btn" disabled={!dirty || savingSettings}>{savingSettings ? "SAVING" : "SAVE"}</button>
         </div>
       </form>
-
-      {data.groups.length === 0 ? <p className="note">还没有分组。先新建一个分组，再登记项目。</p> : null}
-
-      {data.groups.map((group, groupIndex) => (
-        <section
-          key={group.id}
-          className="group-block"
-          onDragOver={(event) => {
-            if (dragRef.current?.kind !== "group") return;
-            event.preventDefault();
-            markOver({ kind: "group", beforeId: group.id });
-          }}
-          onDrop={(event) => {
-            if (dragRef.current?.kind !== "group") return;
-            event.preventDefault();
-            dropGroup(group.id);
-          }}
-        >
-          <div className={over?.kind === "group" && over.beforeId === group.id ? "section-bar insert-before" : "section-bar"}>
-            <span title={group.description}>{String(groupIndex + 1).padStart(2, "0")} / {group.name}{group.icon.trim().length <= 2 && group.icon.trim() ? ` ${group.icon.trim()}` : ""}</span>
-            <span className="section-actions">
-              <button type="button" className="icon-btn" aria-label="上移分组" disabled={groupIndex === 0} onClick={() => void moveGroup(group.id, -1)}>
-                <ChevronUp size={14} strokeWidth={1.75} />
-              </button>
-              <button type="button" className="icon-btn" aria-label="下移分组" disabled={groupIndex === data.groups.length - 1} onClick={() => void moveGroup(group.id, 1)}>
-                <ChevronDown size={14} strokeWidth={1.75} />
-              </button>
-              <button type="button" className="text-btn" onClick={() => setEditor({ type: "group", group })}>EDIT</button>
-              <button type="button" className="text-btn danger-btn" onClick={() => askDeleteGroup(group)}>DELETE</button>
-              <button
-                type="button"
-                className="drag-handle grip"
-                draggable
-                aria-label={`拖拽分组 ${group.name}`}
-                onDragStart={(event) => startDrag(event, { kind: "group", id: group.id }, beginDrag)}
-                onDragEnd={finishDrag}
-              >
-                <GripVertical size={14} strokeWidth={1.75} />
-              </button>
-              <span>{group.apps.length} NODES</span>
-            </span>
-          </div>
-          <div className="table-wrap">
-            <table className="mono-table">
-              <thead>
-                <tr>
-                  <th>NAME</th>
-                  <th>DOMAIN</th>
-                  <th>AUTH</th>
-                  <th>PROBE</th>
-                  <th>ORDER</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.apps.map((app, appIndex) => {
-                  const probe = statuses.get(app.id);
-                  return (
-                    <tr
-                      key={app.id}
-                      className={over?.kind === "app" && over.groupId === group.id && over.beforeId === app.id ? "insert-before" : undefined}
-                      onDragOver={(event) => {
-                        if (dragRef.current?.kind !== "app") return;
-                        event.preventDefault();
-                        markOver({ kind: "app", groupId: group.id, beforeId: app.id });
-                      }}
-                      onDrop={(event) => {
-                        if (dragRef.current?.kind !== "app") return;
-                        event.preventDefault();
-                        dropApp(group.id, app.id);
-                      }}
-                    >
-                      <td>
-                        <div className="name-cell">
-                          <button
-                            type="button"
-                            className="drag-handle grip"
-                            draggable
-                            aria-label={`拖拽项目 ${app.name}`}
-                            onDragStart={(event) => startDrag(event, { kind: "app", id: app.id }, beginDrag)}
-                            onDragEnd={finishDrag}
-                          >
-                            <GripVertical size={14} strokeWidth={1.75} />
-                          </button>
-                          <AppIcon app={app} size={16} />
-                          <button type="button" onClick={() => setEditor({ type: "app", app, groupId: group.id })}>{app.name}</button>
-                        </div>
-                      </td>
-                      <td className="domain"><a href={app.url} target={app.openInNewTab ? "_blank" : undefined} rel="noreferrer">{appHost(app.url)}</a></td>
-                      <td>
-                        <Switch
-                          checked={app.ssoEnabled}
-                          label={`${app.name} SSO`}
-                          disabled={pending === `${app.id}:sso`}
-                          onChange={(checked) => void patchApp(app.id, `${app.id}:sso`, { ssoEnabled: checked })}
-                        />
-                      </td>
-                      <td>
-                        <span className="badges">
-                          <Switch
-                            checked={app.healthCheckEnabled}
-                            label={`${app.name} 健康检查`}
-                            disabled={pending === `${app.id}:health`}
-                            onChange={(checked) => void patchApp(app.id, `${app.id}:health`, { healthCheckEnabled: checked })}
-                          />
-                          {data.settings.showHealthStatus && app.healthCheckEnabled ? (
-                            <span className="tag-mono"><span className={`dot ${probeTone(probe)}`} />{probeLabel(probe)}</span>
-                          ) : null}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="section-actions">
-                          <button type="button" className="icon-btn" aria-label="上移项目" disabled={appIndex === 0} onClick={() => void moveApp(group, app.id, -1)}>
-                            <ChevronUp size={14} strokeWidth={1.75} />
-                          </button>
-                          <button type="button" className="icon-btn" aria-label="下移项目" disabled={appIndex === group.apps.length - 1} onClick={() => void moveApp(group, app.id, 1)}>
-                            <ChevronDown size={14} strokeWidth={1.75} />
-                          </button>
-                          <button type="button" className="text-btn" onClick={() => setEditor({ type: "app", app, groupId: group.id })}>EDIT</button>
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {drag?.kind === "app" ? (
-            <div
-              className={over?.kind === "app" && over.groupId === group.id && over.beforeId === null ? "drop-end active" : "drop-end"}
-              onDragOver={(event) => {
-                event.preventDefault();
-                markOver({ kind: "app", groupId: group.id, beforeId: null });
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                dropApp(group.id, null);
-              }}
-            >
-              放到「{group.name}」末尾
-            </div>
-          ) : null}
-          {group.apps.length === 0 && drag?.kind !== "app" ? <p className="note">此分组还没有项目。</p> : null}
-        </section>
-      ))}
-      {drag?.kind === "group" ? (
-        <div
-          className={over?.kind === "group" && over.beforeId === null ? "drop-end active" : "drop-end"}
-          onDragOver={(event) => {
-            event.preventDefault();
-            markOver({ kind: "group", beforeId: null });
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            dropGroup(null);
-          }}
-        >
-          放到全部分组末尾
-        </div>
-      ) : null}
 
       {editor?.type === "group" ? (
         <GroupEditor key={editor.group?.id ?? "new-group"} group={editor.group} onClose={() => setEditor(null)} onDelete={askDeleteGroup} />
@@ -502,27 +554,32 @@ export function AdminView() {
         />
       ) : null}
       {backup ? (
-        <Modal onClose={() => setBackup(null)} className="confirm" labelledBy="import-title">
+        <Modal onClose={() => { if (!importing) setBackup(null); }} className="confirm" labelledBy="import-title">
           <div className="confirm-body">
             <h2 id="import-title">导入备份</h2>
             <p>文件包含 {backup.groups.length} 个分组、{backup.apps.length} 个项目。合并按 ID 更新或新增；覆盖会先清空当前分组、项目和设置。</p>
             <div className="actions">
-              <button type="button" className="text-btn" onClick={() => setBackup(null)}>取消</button>
-              <button type="button" className="text-btn" onClick={() => void importBackup("merge")}>MERGE</button>
+              <button type="button" className="text-btn" disabled={importing} onClick={() => setBackup(null)}>取消</button>
+              <button type="button" className="text-btn" disabled={importing} onClick={() => void importBackup("merge")}>{importing ? "…" : "MERGE"}</button>
               <button
                 type="button"
                 className="inv-btn"
-                onClick={() => setConfirm({
-                  title: "覆盖当前数据",
-                  body: "覆盖会删除现在的全部分组、项目和设置，再写入这份备份。",
-                  label: "REPLACE",
-                  run: async () => {
-                    await apiSend("/api/backup/import", "POST", { mode: "replace", backup });
-                    setBackup(null);
-                    await refresh();
-                    notify("备份已覆盖恢复");
-                  },
-                })}
+                disabled={importing}
+                onClick={() => {
+                  const snapshot = backup;
+                  setBackup(null);
+                  setConfirm({
+                    title: "覆盖当前数据",
+                    body: `覆盖会删除现在的全部分组、项目和设置，再写入这份包含 ${snapshot.groups.length} 个分组与 ${snapshot.apps.length} 个项目的备份。`,
+                    label: "REPLACE",
+                    onCancel: () => setBackup(snapshot),
+                    run: async () => {
+                      await apiSend("/api/backup/import", "POST", { mode: "replace", backup: snapshot });
+                      await refresh();
+                      notify("备份已覆盖恢复");
+                    },
+                  });
+                }}
               >
                 REPLACE
               </button>
@@ -531,7 +588,17 @@ export function AdminView() {
         </Modal>
       ) : null}
       {confirm ? (
-        <Modal onClose={() => { if (!confirming) setConfirm(null); }} className="confirm" labelledBy="confirm-title">
+        <Modal
+          onClose={() => {
+            if (!confirming) {
+              const cancel = confirm.onCancel;
+              setConfirm(null);
+              cancel?.();
+            }
+          }}
+          className="confirm"
+          labelledBy="confirm-title"
+        >
           <form
             className="confirm-body"
             onSubmit={(event) => {
@@ -545,7 +612,18 @@ export function AdminView() {
             <h2 id="confirm-title">{confirm.title}</h2>
             <p>{confirm.body}</p>
             <div className="actions">
-              <button type="button" className="text-btn" onClick={() => setConfirm(null)} disabled={confirming}>取消</button>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => {
+                  const cancel = confirm.onCancel;
+                  setConfirm(null);
+                  cancel?.();
+                }}
+                disabled={confirming}
+              >
+                取消
+              </button>
               <button type="submit" className="inv-btn" disabled={confirming}>{confirming ? "…" : confirm.label}</button>
             </div>
           </form>

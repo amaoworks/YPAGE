@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { App } from "@/lib/db/schema";
 import { apiSend } from "@/lib/client/api";
 import type { PortalGroup } from "@/lib/portal-types";
-import { isHttpUrl } from "@/lib/view";
-import { AppIcon } from "@/components/app-icon";
+import { isHttpUrl, toIconName } from "@/lib/view";
+import { AppIcon, isKnownLucideIcon } from "@/components/app-icon";
 import { Field, Modal, Switch } from "@/components/modal";
 import { usePortal } from "@/components/shell";
 
@@ -67,7 +67,7 @@ export function GroupEditor({
             <textarea value={description} maxLength={500} rows={3} onChange={(event) => setDescription(event.target.value)} />
           </Field>
           <Field label="图标" hint="可选，显示为一个 Emoji 或短符号。">
-            <input value={icon} maxLength={8} autoComplete="off" placeholder="⌘" onChange={(event) => setIcon(event.target.value)} />
+            <input value={icon} maxLength={16} autoComplete="off" placeholder="⌘" onChange={(event) => setIcon(event.target.value)} />
           </Field>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="actions">
@@ -113,12 +113,37 @@ export function AppEditor({
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [debouncedUrl, setDebouncedUrl] = useState(draft.url);
+  const [debouncedIconValue, setDebouncedIconValue] = useState(draft.iconValue);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedUrl(draft.url);
+      setDebouncedIconValue(draft.iconValue);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [draft.url, draft.iconValue]);
+
   const preview = {
     name: draft.name || "预览",
-    url: draft.url,
+    url: draft.iconType === "favicon" ? debouncedUrl : draft.url,
     iconType: draft.iconType,
-    iconValue: draft.iconValue,
+    iconValue: draft.iconType === "image" ? debouncedIconValue : draft.iconValue,
   };
+  const lucideUnknown =
+    draft.iconType === "lucide" && Boolean(draft.iconValue.trim()) && !isKnownLucideIcon(draft.iconValue);
+  const iconPlaceholder =
+    draft.iconType === "lucide"
+      ? "book-open"
+      : draft.iconType === "image"
+        ? "https://example.com/icon.png"
+        : "🚀";
+  const iconHint =
+    draft.iconType === "lucide"
+      ? "输入 Lucide 图标名（如 book-open、terminal、database）"
+      : draft.iconType === "image"
+        ? "输入公开或可访问的 HTTP/HTTPS 图片地址"
+        : "输入单个 Emoji 表情";
 
   function update<K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -183,7 +208,15 @@ export function AppEditor({
             <textarea value={draft.description} maxLength={500} rows={3} onChange={(event) => update("description", event.target.value)} />
           </Field>
           <Field label="地址 URL">
-            <input value={draft.url} maxLength={2048} inputMode="url" autoComplete="off" spellCheck={false} onChange={(event) => update("url", event.target.value)} />
+            <input
+              value={draft.url}
+              maxLength={2048}
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="https://app.example.com"
+              onChange={(event) => update("url", event.target.value)}
+            />
           </Field>
           <Field label="图标类型">
             <select value={draft.iconType} onChange={(event) => update("iconType", event.target.value as App["iconType"])}>
@@ -194,13 +227,26 @@ export function AppEditor({
             </select>
           </Field>
           {draft.iconType !== "favicon" ? (
-            <Field label="图标值" hint={draft.iconType === "lucide" ? "例如 book-open" : undefined}>
-              <input value={draft.iconValue} maxLength={2048} autoComplete="off" spellCheck={false} onChange={(event) => update("iconValue", event.target.value)} />
+            <Field label="图标值" hint={iconHint}>
+              <input
+                value={draft.iconValue}
+                maxLength={2048}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={iconPlaceholder}
+                onChange={(event) => update("iconValue", event.target.value)}
+              />
             </Field>
           ) : null}
           <div className="icon-preview">
             <AppIcon app={preview} />
-            <span>图标预览</span>
+            <span>
+              {lucideUnknown
+                ? `未找到图标「${toIconName(draft.iconValue) || draft.iconValue.trim()}」`
+                : draft.iconType === "lucide" && draft.iconValue.trim()
+                  ? `图标预览 · ${toIconName(draft.iconValue)}`
+                  : "图标预览"}
+            </span>
           </div>
           <label className="switch-row">
             <span>新窗口打开</span>
@@ -214,14 +260,14 @@ export function AppEditor({
             <span>健康检查</span>
             <Switch checked={draft.healthCheckEnabled} label="健康检查" onChange={(checked) => update("healthCheckEnabled", checked)} />
           </label>
-          <Field label="探测 URL" hint="留空时探测项目地址。">
+          <Field label="探测 URL" hint="开启健康检查后生效，留空则探测项目地址。">
             <input
               value={draft.healthCheckUrl}
               maxLength={2048}
               inputMode="url"
               autoComplete="off"
               spellCheck={false}
-              placeholder="可选"
+              placeholder="可选，例如 https://app.example.com/health"
               onChange={(event) => update("healthCheckUrl", event.target.value)}
             />
           </Field>

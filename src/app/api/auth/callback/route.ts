@@ -10,12 +10,21 @@ import { ApiError, api } from "@/lib/http/api";
 
 const flowSchema = z.object({ state: z.string(), nonce: z.string(), verifier: z.string(), next: z.string() });
 
+function clearFlowError(cookieName: string, status: number, code: string, message: string): NextResponse {
+  const response = NextResponse.json(
+    { error: { code, message } },
+    { status, headers: { "Cache-Control": "private, no-store" } },
+  );
+  response.cookies.set(cookieName, "", { ...authCookieOptions(), maxAge: 0 });
+  return response;
+}
+
 export const GET = api(async (request) => {
   if (devAuthBypass) return new NextResponse(null, { status: 302, headers: { Location: "/" } });
 
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
-  if (!state || !/^[A-Za-z0-9_-]{43}$/.test(state)) {
+  if (!state || !/^[A-Za-z0-9_-]{32,128}$/.test(state)) {
     throw new ApiError(400, "invalid_oidc_state", "Invalid sign-in state");
   }
 
@@ -23,14 +32,13 @@ export const GET = api(async (request) => {
   const name = `ypage_oidc_${state}`;
   const pending = jar.get(name)?.value;
   if (!pending) throw new ApiError(400, "invalid_oidc_state", "Sign-in request has expired");
-  jar.set(name, "", { ...authCookieOptions(), maxAge: 0 });
 
   const flow = flowSchema.safeParse(await verifyAuthToken("oidc-flow", pending));
   if (!flow.success || flow.data.state !== state) {
-    throw new ApiError(400, "invalid_oidc_state", "Invalid sign-in state");
+    return clearFlowError(name, 400, "invalid_oidc_state", "Invalid sign-in state");
   }
   if (url.searchParams.has("error") || !url.searchParams.get("code")) {
-    throw new ApiError(400, "oidc_login_failed", "YPAGE PASS did not authorize this sign-in");
+    return clearFlowError(name, 400, "oidc_login_failed", "YPAGE PASS did not authorize this sign-in");
   }
 
   try {
@@ -39,10 +47,11 @@ export const GET = api(async (request) => {
     const response = NextResponse.redirect(new URL(safeNext(flow.data.next), appOrigin()), 302);
     response.headers.set("Cache-Control", "private, no-store");
     response.headers.set("Referrer-Policy", "no-referrer");
+    response.cookies.set(name, "", { ...authCookieOptions(), maxAge: 0 });
     response.cookies.set(sessionCookie, session, { ...authCookieOptions(), maxAge: sessionMaxAge });
     return response;
   } catch (error) {
     console.error("YPAGE OIDC callback failed", { name: error instanceof Error ? error.name : "unknown" });
-    throw new ApiError(400, "oidc_login_failed", "Unable to verify YPAGE PASS sign-in");
+    return clearFlowError(name, 400, "oidc_login_failed", "Unable to verify YPAGE PASS sign-in");
   }
 });

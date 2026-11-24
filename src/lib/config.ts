@@ -47,7 +47,7 @@ export function sessionKey(): Uint8Array {
 }
 
 export function publicOidc(brandName: string) {
-  const issuer = process.env.OIDC_ISSUER || !devAuthBypass ? oidcIssuer() : null;
+  const issuer = process.env.OIDC_ISSUER?.trim() || !devAuthBypass ? oidcIssuer() : null;
   return {
     brandName,
     issuer,
